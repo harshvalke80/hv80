@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>H &amp; S — RSVP Host View</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=EB+Garamond&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#fbf5e6; --cream-deep:#f3e9cf; --ink:#2b2019; --maroon:#7a1f2b; --green-deep:#1f4a33; --gold:#c9a227;}
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--cream); color:var(--ink); font-family:'EB Garamond',serif; font-size:16px;}
+  .wrap{max-width:960px; margin:0 auto; padding:40px 20px;}
+  h1{font-family:'Cormorant Garamond',serif; font-style:italic; color:var(--green-deep); font-size:40px; margin:0 0 24px; text-align:center;}
+  form{display:flex; gap:10px; max-width:460px; margin:0 auto 32px;}
+  input{flex:1; padding:10px 12px; font:inherit; border:1px solid rgba(43,32,25,.3); background:#fff;}
+  button{padding:10px 18px; background:var(--maroon); color:var(--cream); border:none; font:inherit; cursor:pointer;}
+  button:hover{background:var(--green-deep);}
+  .msg{text-align:center; color:var(--maroon); min-height:1.4em;}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:28px;}
+  .stat{background:var(--cream-deep); border:1px solid rgba(201,162,39,.5); padding:16px; text-align:center;}
+  .stat b{display:block; font-family:'Cormorant Garamond',serif; font-size:36px; color:var(--green-deep);}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; background:#fff;}
+  th,td{padding:10px 12px; text-align:left; border-bottom:1px solid rgba(201,162,39,.35); vertical-align:top;}
+  th{background:var(--green-deep); color:var(--cream); font-weight:normal; letter-spacing:.04em;}
+  td.no{color:#8a7a6a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RSVP Host View</h1>
+  <form id="key-form">
+    <input id="host-key" type="password" placeholder="Host key" autocomplete="current-password" required>
+    <button type="submit">Load</button>
+  </form>
+  <p class="msg" id="msg"></p>
+  <div id="results" hidden>
+    <div class="stats">
+      <div class="stat"><b id="s-responses">0</b>Responses</div>
+      <div class="stat"><b id="s-attending">0</b>Attending</div>
+      <div class="stat"><b id="s-declined">0</b>Declined</div>
+      <div class="stat"><b id="s-guests">0</b>Total guests</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>When</th><th>Name</th><th>Attending</th><th>Guests</th><th>Guest names</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Must match RSVP_ENDPOINT in index.html
+  const RSVP_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzM7XsLSolpq4Dm1dd4pfUXzXh3pkuqj4Qy6Of1ADTJz5Ub4E_h2kWKJVVrAgEHz9qV8w/exec';
+
+  const msg = document.getElementById('msg');
+
+  document.getElementById('key-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    msg.textContent = 'Loading…';
+    const body = new URLSearchParams({ action: 'list', key: document.getElementById('host-key').value });
+    try {
+      const res = await fetch(RSVP_ENDPOINT, { method: 'POST', body });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Request failed');
+      render(data);
+      msg.textContent = '';
+    } catch (err) {
+      document.getElementById('results').hidden = true;
+      msg.textContent = err.message;
+    }
+  });
+
+  function render(data){
+    const s = data.summary;
+    document.getElementById('s-responses').textContent = s.responses;
+    document.getElementById('s-attending').textContent = s.attending;
+    document.getElementById('s-declined').textContent = s.declined;
+    document.getElementById('s-guests').textContent = s.totalGuests;
+
+    const tbody = document.getElementById('rows');
+    tbody.replaceChildren();
+    data.rsvps.forEach(r => {
+      const tr = document.createElement('tr');
+      const cells = [
+        new Date(r.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+        r.name, r.attending, r.guests, r.guestNames || '—'
+      ];
+      cells.forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+      if (r.attending !== 'Joyfully attending') tr.querySelectorAll('td').forEach(td => td.classList.add('no'));
+      tbody.appendChild(tr);
+    });
+    document.getElementById('results').hidden = false;
+  }
+</script>
+</body>
+</html>

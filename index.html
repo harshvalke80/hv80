@@ -226,6 +226,7 @@
   .rsvp-note{font-size:14px; color:#6b5a4a; text-align:center; margin-top:16px;}
   .rsvp-thanks{display:none; text-align:center;}
   .rsvp-thanks .lamp-div{width:38px;}
+  #r-members input + input{margin-top:10px;}
 
   /* ---------- faq ---------- */
   .faq-list{max-width:700px; margin:0 auto;}
@@ -416,13 +417,13 @@
             <option>Sadly can't make it</option>
           </select>
         </div>
-        <div class="field">
-          <label for="r-guests">Number of guests (incl. you)</label>
-          <input id="r-guests" type="number" min="1" value="1">
+        <div class="field" id="guests-field">
+          <label for="r-guests">Number of members (incl. you)</label>
+          <input id="r-guests" type="number" min="1" max="20" value="1">
         </div>
-        <div class="field">
-          <label for="r-note">Names of guests joining you (if more than 1)</label>
-          <textarea id="r-note" placeholder="e.g. Priya Sunil, Arjun Sunil"></textarea>
+        <div class="field" id="members-field" hidden>
+          <label>Names of family members joining you</label>
+          <div id="r-members"></div>
         </div>
         <button type="submit" class="submit-btn">Send RSVP</button>
         <p class="rsvp-note" id="rsvp-error" style="display:none; color:var(--maroon);">Sorry, something went wrong. Please try again.</p>
@@ -505,14 +506,52 @@
 
   // rsvp submit -> Google Apps Script -> Google Sheet
   const RSVP_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzM7XsLSolpq4Dm1dd4pfUXzXh3pkuqj4Qy6Of1ADTJz5Ub4E_h2kWKJVVrAgEHz9qV8w/exec';
+  // N family members -> N-1 name fields (the family "Full name")
+  const MAX_MEMBERS = 20;
+  const attendEl = document.getElementById('r-attend');
+  const guestsEl = document.getElementById('r-guests');
+  const membersField = document.getElementById('members-field');
+  const membersEl = document.getElementById('r-members');
+
+  function memberCount(){
+    const n = parseInt(guestsEl.value, 10);
+    return Math.min(Math.max(isNaN(n) ? 1 : n, 1), MAX_MEMBERS);
+  }
+
+  function renderMembers(){
+    const attending = attendEl.value !== "Sadly can't make it";
+    const needed = attending ? memberCount() - 1 : 0;
+    document.getElementById('guests-field').hidden = !attending;
+    guestsEl.disabled = !attending;
+
+    const existing = Array.from(membersEl.querySelectorAll('input'));
+    for (let i = existing.length; i < needed; i++){
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.required = true;
+      input.maxLength = 100;
+      input.placeholder = 'Family member ' + (i + 2) + ' — full name';
+      input.setAttribute('aria-label', 'Family member ' + (i + 2) + ' full name');
+      membersEl.appendChild(input);
+    }
+    existing.slice(needed).forEach(input => input.remove());
+    membersField.hidden = needed === 0;
+  }
+
+  guestsEl.addEventListener('input', renderMembers);
+  guestsEl.addEventListener('change', () => { guestsEl.value = memberCount(); renderMembers(); });
+  attendEl.addEventListener('change', renderMembers);
+  renderMembers();
+
   document.getElementById('rsvp-form').addEventListener('submit', function(e){
     e.preventDefault();
     const formEl = this;
     const data = new URLSearchParams();
     data.append('name', document.getElementById('r-name').value);
     data.append('attending', document.getElementById('r-attend').value);
-    data.append('guests', document.getElementById('r-guests').value);
-    data.append('guestNames', document.getElementById('r-note').value);
+    data.append('guests', guestsEl.disabled ? 0 : memberCount());
+    data.append('guestNames', Array.from(membersEl.querySelectorAll('input'))
+      .map(input => input.value.trim()).filter(Boolean).join(', '));
 
     const btn = formEl.querySelector('.submit-btn');
     const errEl = document.getElementById('rsvp-error');

@@ -39,7 +39,7 @@ function addRsvp_(p) {
   else if (!(guests >= 1)) guests = 1;
   guests = Math.min(guests, MAX_GUESTS);
 
-  const guestNames = clean_(p.guestNames, 500);
+  const guestNames = clean_(p.guestNames, 2000);
 
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
